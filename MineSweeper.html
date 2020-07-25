@@ -1,0 +1,472 @@
+<!DOCTYPE HTML>
+<html>
+
+     <head>
+          <title>MineSweeper</title>
+          <style>
+               body {
+                    -moz-user-select: none;
+                     -webkit-user-select: none;
+                     -ms-user-select:none;
+                     user-select:none;
+                     -o-user-select:none;
+                    overflow: hidden;
+                    background-color: darkgrey;
+               }
+               canvas {
+                    position: absolute;
+                    top: 30px;
+                    left: 30px;
+               }
+               button{
+                    background-color: lightgrey;
+               }
+               p{
+                    color: #511;
+                    font: 20px arial, sans-serif;
+                    position: absolute;
+                    top: -18px;
+               }
+               .diff {
+                    position: absolute;
+                    top: 0px;
+                    left: 0px;
+                    height: 30px;
+                    width: 300px;
+                    text-align: center;
+                    padding: 3px;
+               }
+               .bombs {
+                    left: 20px;
+                    color: #505050;
+               }
+               .flags {
+                    left: 390px;
+               }
+               .times{
+                    left: 270px;
+               }
+          </style>
+     </head>
+
+     <body onresize="resized()">
+          <div class="diff">
+               <button onclick="diffmode(0)">Easy</button>
+               <button onclick="diffmode(1)">Medium</button>
+               <button onclick="diffmode(2)">Hard</button>
+          </div>
+          <div class="perc">
+               <p id="bombs" class="bombs">80</p>
+               <p id="flags" class="flags">Flags: 0</p>
+               <p id="timer" class="times">Time: 0</p>
+          </div>
+          <canvas id="screen" onmousemove="moving(event)" onmousedown="mouseClicked(event)"></canvas>
+          <script>
+               
+               var cdx = document.getElementById("screen");
+               var ctx = cdx.getContext("2d");
+
+               var height = window.innerHeight - 30;
+               var width = window.innerWidth;
+               var map = [];
+               var tick = setInterval(function(){
+                    if(time.run){
+                         time.sec += 1;
+                         document.getElementById("timer").innerHTML = "Time: " + time.sec;
+                    }
+                    
+               },1000);
+
+               var field;
+               var hand = {
+                    x: 0,
+                    y: 0,
+                    f: 0,
+                    d: false,
+                    c: true,
+                    m: 1
+               };
+               
+               var time = {
+                    sec: 0,
+                    run: false
+               };
+
+               setup();
+
+               function setup() {
+                    cdx.width = width;
+                    cdx.height = height;
+
+                    diffmode(1);
+               }
+
+               function moving(event) {
+                    hand.x = event.clientX - 30;
+                    hand.y = event.clientY - 30;
+               }
+               
+               function resized(){
+                    width = window.innerWidth;
+                    height = window.innerHeight;
+                    cdx.width = width;
+                    cdx.height = height;
+                    field.display();
+               }
+               
+               function mouseClicked(event){
+                    if(event.button == 0){
+                         field.clickedIt(-1, -1);
+                    } else if(event.button == 2){
+                         field.flaggedIt();
+                    }
+               }
+               
+               cdx.oncontextmenu = function (e) {
+                   e.preventDefault();
+               };
+
+               onkeydown = onkeyup = function(e) {
+                    e = e || event;
+                    map[e.keyCode] = e.type == 'keydown';
+
+                    if (map[32]) {
+                         field.flaggedIt();
+                    }
+                    if (map[80]) {
+                         field = new Grid(20, 20, 300);
+                         document.getElementById("bombs").innerHTML = "300";
+                         field.start();
+                         field.display();
+                    }
+
+               };
+
+               function falsestart(X, Y) {
+                    var posX = X;
+                    var posY = Y;
+                    var i = 0;
+                    while (i < 10) {
+                         switch (hand.m) {
+                              case 0:
+                                   field = new Grid(10, 10, 15);
+                                   break;
+                              case 1:
+                                   field = new Grid(20, 15, 40);
+                                   break;
+                              case 2:
+                                   field = new Grid(40, 20, 100);
+                         }
+                         field.start();
+                         if (field.value[posX][posY] === 0) {
+                              i += 100;
+                              hand.c = false;
+                         }
+                    }
+                    field.display();
+                    field.clickedIt(posX, posY);
+               }
+
+               function diffmode(D) {
+                    var diff = D;
+
+                    switch (diff) {
+                         case 0:
+                              field = new Grid(10, 10, 15);
+                              document.getElementById("bombs").innerHTML = "15";
+                              hand.m = 0;
+                              break;
+                         case 1:
+                              field = new Grid(20, 15, 40);
+                              document.getElementById("bombs").innerHTML = "40";
+                              hand.m = 1;
+                              break;
+                         case 2:
+                              field = new Grid(40, 20, 100);
+                              document.getElementById("bombs").innerHTML = "100";
+                              hand.m = 2;
+                    }
+                    
+                    time.sec = 0;
+                    time.run = false;
+                    document.getElementById("timer").innerHTML = "Time: " + time.sec;
+
+                    hand.c = true;
+
+                    field.start();
+                    field.display();
+               }
+
+               function Grid(R, C, B) {
+                    this.rows = R;
+                    this.colm = C;
+
+                    this.size = 30;
+                    this.off = 2;
+
+                    this.bomb = B;
+
+                    this.value = [];
+                    this.clicked = [];
+                    this.flagged = [];
+
+
+                    this.start = function() {
+                         hand.f = 0;
+                         hand.d = false;
+                         for (var i = 0; i < this.rows; i++) {
+                              this.value[i] = [];
+                              this.clicked[i] = [];
+                              this.flagged[i] = [];
+                              for (var e = 0; e < this.colm; e++) {
+                                   this.value[i][e] = 0;
+                                   this.clicked[i][e] = false;
+                                   this.flagged[i][e] = false;
+                              }
+                         }
+
+                         for (var b = 0; b < (this.bomb); b++) {
+                              var a = Math.floor(Math.random() * this.rows);
+                              var c = Math.floor(Math.random() * this.colm);
+                              if (this.value[a][c] === 0) {
+                                   this.value[a][c] = -100;
+                              } else {
+                                   b--;
+                              }
+                         }
+
+                         for (i = 0; i < this.rows; i++) {
+                              for (var e = 0; e < this.colm; e++) {
+
+                                   if (this.value[i][e] != -100) {
+                                        var j = 0;
+                                        for (var g = -1; g < 2; g++) {
+                                             for (var f = -1; f < 2; f++) {
+
+                                                  if ((i + g) >= 0 && (i + g) <= this.rows - 1) {
+                                                       if ((e + f) >= 0 && (e + f) <= this.colm - 1) {
+                                                            if (this.value[i + g][e + f] == -100) {
+                                                                 j++;
+                                                            }
+                                                       }
+                                                  }
+                                             }
+                                        }
+                                        this.value[i][e] = j;
+                                   }
+                              }
+                         }
+
+                    };
+
+                    this.display = function() {
+                         ctx.font = "20px Arial";
+
+                         ctx.fillStyle = "darkgrey";
+                         ctx.fillRect(0, 0, width, height);
+
+                         for (var i = 0; i < this.rows; i++) {
+                              for (var e = 0; e < this.colm; e++) {
+                                   if (this.clicked[i][e] && this.flagged[i][e] === false) {
+                                        ctx.fillStyle = "lightgrey";
+                                        ctx.fillRect(i * this.size, e * this.size, this.size - this.off, this.size - this.off);
+
+                                        if (this.value[i][e] !== -100) {
+                                             switch (this.value[i][e]) {
+                                                  case 0:
+                                                       ctx.fillStyle = "black";
+                                                       ctx.globalAlpha = 0;
+                                                       break;
+                                                  case 1:
+                                                       ctx.fillStyle = "blue";
+                                                       break;
+                                                  case 2:
+                                                       ctx.fillStyle = "green";
+                                                       break;
+                                                  case 3:
+                                                       ctx.fillStyle = "red";
+                                                       break;
+                                                  case 4:
+                                                       ctx.fillStyle = "midnightblue";
+                                                       break;
+                                                  case 5:
+                                                       ctx.fillStyle = "darkred";
+                                                       break;
+                                                  case 6:
+                                                       ctx.fillStyle = "cyan";
+                                                       break;
+                                                  case 7:
+                                                       ctx.fillStyle = "black";
+                                                       break;
+                                                  case 8:
+                                                       ctx.fillStyle = "darkgrey";
+
+                                             }
+                                             ctx.fillText(this.value[i][e], i * this.size + ((this.size + this.off) / 4), e * this.size + ((this.size + this.off) / 1.5));
+                                             ctx.globalAlpha = 1;
+                                        } else {
+                                             ctx.fillStyle = "lightgrey";
+                                             ctx.fillRect(i * this.size, e * this.size, this.size - this.off, this.size - this.off);
+                                        
+                                        
+                                             ctx.fillStyle = "black";
+                                             ctx.beginPath();
+                                             ctx.arc((i * this.size) + ((this.size - this.off) / 2), (e * this.size) + ((this.size - this.off) / 2), (this.size / 3), 0, 2 * Math.PI);
+                                             ctx.fill();
+                                             ctx.globalAlpha = 0.25;
+                                             ctx.fillStyle = "red";
+                                             ctx.fillRect(i * this.size, e * this.size, this.size - this.off, this.size - this.off);
+                                             ctx.globalAlpha = 1;
+                                        }
+                                   } else if (this.flagged[i][e]) {
+                                        //flagged tiles
+                                        ctx.fillStyle = "darkgrey";
+                                        ctx.fillRect(i * this.size, e * this.size, this.size - this.off, this.size - this.off);
+                                        
+                                        ctx.fillStyle = "grey";
+                                        ctx.fillRect(i* this.size, e * this.size, this.size - this.off, 3);
+                                        ctx.fillRect(i* this.size, e * this.size, 3, this.size - this.off);
+                                        
+                                        ctx.fillStyle = "darkslategrey";
+                                        ctx.fillRect(i* this.size + (this.size - this.off), e * this.size+ (this.size - this.off), -1 * (this.size - this.off), -3);
+                                        ctx.fillRect(i* this.size + (this.size - this.off), e * this.size+ (this.size - this.off),-3 ,-1 * (this.size - this.off));
+                                        
+                                        
+                                        ctx.fillStyle = "maroon";
+                                        ctx.beginPath();
+                                        ctx.arc((i * this.size) + ((this.size - this.off) / 2), (e * this.size) + ((this.size - this.off) / 2), (this.size / 3), 0, 2 * Math.PI);
+                                        ctx.fill();
+
+                                        if (this.clicked[i][e] && this.value[i][e] === -100) {
+                                             ctx.globalAlpha = 0.5;
+                                             ctx.fillStyle = "royalblue";
+                                             ctx.fillRect(i * this.size, e * this.size, this.size - this.off, this.size - this.off);
+                                             ctx.globalAlpha = 1;
+                                        } else if (this.clicked[i][e] && this.value[i][e] != -100){
+                                             ctx.globalAlpha = 0.25;
+                                             ctx.fillStyle = "darkslategrey";
+                                             ctx.fillRect(i * this.size, e * this.size, this.size - this.off, this.size - this.off);
+                                             ctx.globalAlpha = 1;
+                                        }
+                                   } else {
+                                        //non clicked tile
+                                        ctx.fillStyle = "darkgrey";
+                                        ctx.fillRect(i * this.size, e * this.size, this.size - this.off, this.size - this.off);
+                                        
+                                        ctx.fillStyle = "grey";
+                                        ctx.fillRect(i* this.size, e * this.size, this.size - this.off, 3);
+                                        ctx.fillRect(i* this.size, e * this.size, 3, this.size - this.off);
+                                        
+                                        ctx.fillStyle = "darkslategrey";
+                                        ctx.fillRect(i* this.size + (this.size - this.off), e * this.size+ (this.size - this.off), -1 * (this.size - this.off), -3);
+                                        ctx.fillRect(i* this.size + (this.size - this.off), e * this.size+ (this.size - this.off),-3 ,-1 * (this.size - this.off));
+                                   }
+                              }
+                         }
+                         if (hand.d) {
+                              document.getElementById("flags").innerHTML = "Flags Correct: " + hand.f;
+                         } else {
+                              document.getElementById("flags").innerHTML = "Flags: " + hand.f;
+                         }
+                    };
+
+                    this.clickedIt = function(X, Y) {
+                         var posX = X;
+                         var posY = Y;
+                         if (posX === -1 && posY === -1) {
+                              var a = Math.floor(hand.x / this.size);
+                              var b = Math.floor(hand.y / this.size);
+                              posX = a;
+                              posY = b;
+                              if(hand.c){
+                                   time.run = true;
+                              }
+                         }
+                         
+                         if(this.clicked[posX][posY] === false){
+                              this.clicked[posX][posY] = true;
+                              if (this.flagged[posX][posY]) {
+                                   hand.f -= 1;
+                                   this.flagged[posX][posY] = false;
+                              }
+                         }
+                         if(hand.c === false){
+                              this.display();
+                         }
+                         
+                         if (this.value[posX][posY] !== 0 && hand.c) {
+                              falsestart(posX, posY);
+
+                         } else if (this.value[posX][posY] === 0) {
+
+                              hand.c = false;
+                              for (var g = -1; g < 2; g++) {
+                                   for (var f = -1; f < 2; f++) {
+
+                                        if ((posX + g) >= 0 && (posX + g) <= this.rows - 1) {
+                                             if ((posY + f) >= 0 && (posY + f) <= this.colm - 1) {
+                                                  if (this.clicked[posX + g][posY + f] === false) {
+                                                       this.clickedIt((posX + g), (posY + f));
+                                                  }
+                                             }
+                                        }
+                                   }
+                              }
+                              this.display();
+                         } else if (this.value[posX][posY] === -100) {
+                              hand.f = 0;
+                              hand.d = true;
+                              time.run = false;
+
+                              for (var i = 0; i < this.rows; i++) {
+                                   for (var e = 0; e < this.colm; e++) {
+                                        this.clicked[i][e] = true;
+                                        if (this.flagged[i][e] && this.value[i][e] === -100) {
+                                             hand.f++;
+                                        }
+                                   }
+                              }
+                              this.display();
+                         }
+                         
+                         this.checkIt();
+                    };
+
+                    this.flaggedIt = function() {
+                         var a = Math.floor(hand.x / this.size);
+                         var b = Math.floor(hand.y / this.size);
+
+                         if (this.clicked[a][b] === false) {
+                              if (this.flagged[a][b]) {
+                                   this.flagged[a][b] = false;
+                                   hand.f -= 1;
+                              } else {
+                                   this.flagged[a][b] = true;
+                                   hand.f += 1;
+                              }
+                         }
+                         this.display();
+                         this.checkIt();
+                    };
+                    
+                    this.checkIt = function(){
+                         var bombsflagged = 0;
+                         
+                         for(var g = 0; g < this.rows; g++){
+                              for(var f = 0; f < this.colm; f++){
+                                   if(this.value[g][f] === -100 && this.flagged[g][f] === true){
+                                        bombsflagged++;
+                                   }
+                              }
+                         }
+                         
+                         if(bombsflagged == hand.f && bombsflagged == this.bomb){
+                              time.run = false;
+                         }
+                    };
+
+               }
+          </script>
+     </body>
+
+</html>
